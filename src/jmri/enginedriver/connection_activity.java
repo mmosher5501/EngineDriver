@@ -78,8 +78,12 @@ public class connection_activity extends Activity {
     private int connected_port;
     private boolean navigatingAway = false;        // flag for onPause: set to true when another activity is selected, false if going into background
 
-    private static final String example_host = "jmri.mstevetodd.com";
-    private static final String example_port = "44444";
+    private String deviceId = "";
+
+    private static final String demo_host = "jmri.mstevetodd.com";
+    private static final String demo_port = "44444";
+
+    private boolean prefHideDemoServer = false;
 
     private static Method overridePendingTransition;
 
@@ -167,14 +171,14 @@ public class connection_activity extends Activity {
                 try {
                     connected_port = Integer.valueOf(entry.getText().toString());
                 } catch (Exception except) {
-                    Toast.makeText(getApplicationContext(), "Invalid port#, retry.\n" + except.getMessage(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getApplicationContext(), getApplicationContext().getResources().getString(R.string.toastConnectInvalidPort) + "\n" + except.getMessage(), Toast.LENGTH_SHORT).show();
                     connected_port = 0;
                     return;
                 }
                 connected_hostname = connected_hostip; //copy ip to name
                 connect();
             } else {
-                Toast.makeText(getApplicationContext(), "Enter or select an address and port", Toast.LENGTH_SHORT).show();
+                Toast.makeText(getApplicationContext(), getApplicationContext().getResources().getString(R.string.toastConnectEnterAddress), Toast.LENGTH_SHORT).show();
             }
         }
     }
@@ -191,15 +195,15 @@ public class connection_activity extends Activity {
                     try {
                         connected_port = Integer.valueOf(tm.get("port"));
                     } catch (Exception except) {
-                        Toast.makeText(getApplicationContext(), "Invalid port#, retry.\n" + except.getMessage(), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getApplicationContext(), getApplicationContext().getResources().getString(R.string.toastConnectInvalidPort) + "\n" + except.getMessage(), Toast.LENGTH_SHORT).show();
                         connected_port = 0;
                         return;
                     }
                     connected_hostname = tm.get("host_name"); //copy ip to name
                     connect();
-                    Toast.makeText(getApplicationContext(), "Connected to Server: " + connected_hostname + "  Port : " + connected_port, Toast.LENGTH_LONG).show();
+                    Toast.makeText(getApplicationContext(), getApplicationContext().getResources().getString(R.string.toastConnectConnected).replace("%%1%%",connected_hostname).replace("%%2%%", Integer.toString(connected_port)), Toast.LENGTH_LONG).show();
                 } else {
-                    Toast.makeText(getApplicationContext(), "Enter or select an address and port", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(getApplicationContext(), getApplicationContext().getResources().getString(R.string.toastConnectEnterAddress), Toast.LENGTH_SHORT).show();
                 }
             }
         } catch (Exception ex) {
@@ -311,6 +315,9 @@ public class connection_activity extends Activity {
         mainapp.applyTheme(this);
 
         setContentView(R.layout.connection);
+
+        prefHideDemoServer = prefs.getBoolean("prefHideDemoServer", getResources().getBoolean(R.bool.prefHideDemoServerDefaultValue));
+
 
         //Set up a list adapter to allow adding discovered WiThrottle servers to the UI.
         discovery_list = new ArrayList<>();
@@ -523,7 +530,7 @@ public class connection_activity extends Activity {
         @Override
         protected void onPostExecute(String errMsg) {
             if (errMsg.length() > 0)
-                Toast.makeText(getApplicationContext(), "Error saving recent connection: " + errMsg, Toast.LENGTH_SHORT).show();
+                Toast.makeText(getApplicationContext(), getApplicationContext().getResources().getString(R.string.toastConnectErrorSavingRecentConnection) + " " + errMsg, Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -546,7 +553,7 @@ public class connection_activity extends Activity {
     }
 
     private void getConnectionsList() {
-        boolean foundExampleHost = false;
+        boolean foundDemoHost = false;
         connections_list.clear();
         String errMsg;
         if (!android.os.Environment.getExternalStorageState().equals(android.os.Environment.MEDIA_MOUNTED)) {
@@ -582,15 +589,19 @@ public class connection_activity extends Activity {
                             } catch (Exception ignored) {
                             }
                             if (port > 0) {  //skip if port not converted to integer
-                                HashMap<String, String> hm = new HashMap<>();
-                                hm.put("ip_address", ip_address);
-                                hm.put("host_name", host_name);
-                                hm.put("port", port.toString());
-                                if (!connections_list.contains(hm)) {    // suppress dups
-                                    connections_list.add(hm);
+
+                                if ((!prefHideDemoServer)
+                                        || ((prefHideDemoServer)  && !((host_name.equals(demo_host)) && (port.toString().equals(demo_port))))) {
+                                    HashMap<String, String> hm = new HashMap<>();
+                                    hm.put("ip_address", ip_address);
+                                    hm.put("host_name", host_name);
+                                    hm.put("port", port.toString());
+                                    if (!connections_list.contains(hm)) {    // suppress dups
+                                        connections_list.add(hm);
+                                    }
                                 }
-                                if (host_name.equals(example_host) && port.toString().equals(example_port)) {
-                                    foundExampleHost = true;
+                                if (host_name.equals(demo_host) && port.toString().equals(demo_port)) {
+                                    foundDemoHost = true;
                                 }
                             }
                         }
@@ -600,16 +611,16 @@ public class connection_activity extends Activity {
             } catch (IOException except) {
                 errMsg = except.getMessage();
                 Log.e("connection_activity", "Error reading recent connections list: " + errMsg);
-                Toast.makeText(getApplicationContext(), "Error reading recent connections list: " + errMsg, Toast.LENGTH_SHORT).show();
+                Toast.makeText(getApplicationContext(), getApplicationContext().getResources().getString(R.string.toastConnectErrorReadingRecentConnections) + " " + errMsg, Toast.LENGTH_SHORT).show();
             }
         }
 
-        //if example host not already in list, add it at end
-        if (!foundExampleHost) {
+        //if demo host not already in list, add it at end
+        if ((!prefHideDemoServer) && (!foundDemoHost)) {
             HashMap<String, String> hm = new HashMap<>();
-            hm.put("ip_address", example_host);
-            hm.put("host_name", example_host);
-            hm.put("port", example_port);
+            hm.put("ip_address", demo_host);
+            hm.put("host_name", demo_host);
+            hm.put("port", demo_port);
             connections_list.add(hm);
         }
         connection_list_adapter.notifyDataSetChanged();
@@ -653,10 +664,9 @@ public class connection_activity extends Activity {
                     engine_driver_dir.mkdir();            // create directory if it doesn't exist
 
                     res = importExportPreferences.saveSharedPreferencesToFile(mainapp.getApplicationContext(), sharedPreferences, exportedPreferencesFileName);
-                    ;
                 }
             } else {
-                Toast.makeText(getApplicationContext(), "Unable to save host specific preferences. Can't get host name.", Toast.LENGTH_LONG).show();
+                Toast.makeText(getApplicationContext(), getApplicationContext().getResources().getString(R.string.toastConnectUnableToSavePref), Toast.LENGTH_LONG).show();
             }
         } else { // preference is NOT to save the preferences for the host
             res = true;
@@ -670,14 +680,17 @@ public class connection_activity extends Activity {
        SharedPreferences sharedPreferences = getSharedPreferences("jmri.enginedriver_preferences", 0);
        String prefAutoImportExport = sharedPreferences.getString("prefAutoImportExport", getApplicationContext().getResources().getString(R.string.prefAutoImportExportDefaultValue)).trim();
 
+       deviceId = Settings.System.getString(getContentResolver(), Settings.System.ANDROID_ID);
+       sharedPreferences.edit().putString("prefAndroidId", deviceId).commit();
+
        if ((prefAutoImportExport.equals(AUTO_IMPORT_EXPORT_OPTION_CONNECT_AND_DISCONNECT))
                || (prefAutoImportExport.equals(AUTO_IMPORT_EXPORT_OPTION_CONNECT_ONLY))) {  // automatically load the host specific preferences, if the preference is set
            if (mainapp.connectedHostName != null) {
                String exportedPreferencesFileName = mainapp.connectedHostName.replaceAll("[^A-Za-z0-9_]", "_") + ".ed";
-               res = importExportPreferences.loadSharedPreferencesFromFile(mainapp.getApplicationContext(), sharedPreferences, exportedPreferencesFileName);
+               res = importExportPreferences.loadSharedPreferencesFromFile(mainapp.getApplicationContext(), sharedPreferences, exportedPreferencesFileName, deviceId);
                res = true;
            } else {
-               Toast.makeText(getApplicationContext(), "Unable to load host specific preferences. Can't get host name.", Toast.LENGTH_LONG).show();
+               Toast.makeText(getApplicationContext(), getApplicationContext().getResources().getString(R.string.toastConnectUnableToSavePref), Toast.LENGTH_LONG).show();
            }
        } else { // preference is NOT to load the preferences for the host
            res = true;

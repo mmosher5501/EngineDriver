@@ -30,6 +30,7 @@
     <bool name="prefConnectToFirstServer">false</bool>
     <bool name="prefDisplaySpeedArrows">false</bool>
     <bool name="prefHideSliderDefaultValue">false</bool>
+    <bool name="prefHideSliderAndSpeedButtonsDefaultValue">false</bool>
     <bool name="prefSwipeThroughTurnoutsDefaultValue">true</bool>
     <bool name="prefSwipeThroughRoutesDefaultValue">true</bool>
     <bool name="prefDirChangeWhileMovingDefaultValue">true</bool>
@@ -42,10 +43,23 @@
     <bool name="prefAlwaysUseDefaultFunctionLabelsDefaultValue">false</bool>
     <bool name="prefConsistLightsLongClickDefaultValue">false</bool>
     <bool name="prefGamePadMultipleDevicesDefaultValue">true</bool>
-
     <bool name="prefSwapForwardReverseButtonsDefaultValue">false</bool>
     <bool name="prefSwapForwardReverseButtonsLongPressDefaultValue">false</bool>
-
+    <bool name="prefGamepadTestEnforceTestingDefaultValue">true</bool>
+    <bool name="prefGamepadSwapForwardReverseWithScreenButtonsDefaultValue">true</bool>
     <bool name="prefImportExportLocoListDefaultValue">true</bool>
     <bool name="prefAutoImportExportDefaultValue">false</bool>
+
+    <bool name="prefDisableVolumeKeysDefaultValue">false</bool>
+    <bool name="prefVolumeKeysFollowLastTouchedThrottleDefaultValue">false</bool>
+
+    <bool name="prefGamepadTestNowDefaultValue">false</bool>
+    <bool name="prefHideDemoServerDefaultValue">false</bool>
+
+     <bool name="prefTtsThrottleDefaultValue">true</bool>
+    <bool name="prefTtsThrottleSpeedDefaultValue">false</bool>
+    <bool name="prefTtsThrottleLocoSpeedDefaultValue">false</bool>
+    <bool name="prefTtsGamepadTestDefaultValue">true</bool>
+    <bool name="prefTtsGamepadTestCompleteDefaultValue">true</bool>
+
 </resources>

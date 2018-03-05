@@ -23,6 +23,7 @@ package jmri.enginedriver;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Environment;
+import android.provider.Settings;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -63,7 +64,7 @@ public class ImportExportPreferences {
             output = new ObjectOutputStream(new FileOutputStream(dst));
             output.writeObject(sharedPreferences.getAll());
 
-            Toast.makeText(context, "Export to 'engine_driver/" + exportedPreferencesFileName + "' succeeded.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(context, context.getResources().getString(R.string.toastImportExportExportSucceeded).replace("%%1%%",exportedPreferencesFileName), Toast.LENGTH_SHORT).show();
             res = true;
         } catch (FileNotFoundException e) {
             e.printStackTrace();
@@ -100,14 +101,14 @@ public class ImportExportPreferences {
         if (!exportedPreferencesFileName.equals(".ed")) {
             res = writeExportFile(context, sharedPreferences, exportedPreferencesFileName);
         } else {
-            Toast.makeText(context, "Can't export host specific preferences. Not connected to a host.", Toast.LENGTH_LONG).show();
+            Toast.makeText(context, context.getResources().getString(R.string.toastImportExportExportFailed), Toast.LENGTH_LONG).show();
         }
 
         return res;
     }
 
     @SuppressWarnings({ "unchecked" })
-    public boolean loadSharedPreferencesFromFile(Context context, SharedPreferences sharedPreferences, String exportedPreferencesFileName) {
+    public boolean loadSharedPreferencesFromFile(Context context, SharedPreferences sharedPreferences, String exportedPreferencesFileName, String deviceId) {
         currentlyImporting = true;
         boolean res = false;
         boolean srcExists = false;
@@ -150,15 +151,19 @@ public class ImportExportPreferences {
                     res = true;
 
                     res = true;
-                    // restore the remembered throttle name to avoid a duplicate throttle name
-                    sharedPreferences.edit().putString("throttle_name_preference", currentThrottleNameValue).commit();
+
+                    // restore the remembered throttle name to avoid a duplicate throttle name if this is a differnt to device to where it was originally saved
+                    String restoredDeviceId = sharedPreferences.getString("prefAndroidId", "").trim();
+                    if ((!restoredDeviceId.equals(deviceId)) || (restoredDeviceId.equals(""))) {
+                        sharedPreferences.edit().putString("throttle_name_preference", currentThrottleNameValue).commit();
+                    }
                     sharedPreferences.edit().putString("prefImportExport", "None").commit();  //reset the preference
                     sharedPreferences.edit().putString("prefHostImportExport", "None").commit();  //reset the preference
                     sharedPreferences.edit().putString("prefAutoImportExport", prefAutoImportExport).commit();  //reset the preference
                     sharedPreferences.edit().putBoolean("prefImportExportLocoList", prefImportExportLocoList).commit();  //reset the preference
 
 
-                    Toast.makeText(context, "Preferences import from 'engine_driver/" + exportedPreferencesFileName + "' succeeded.", Toast.LENGTH_LONG).show();
+                    Toast.makeText(context, context.getResources().getString(R.string.toastImportExportImportSucceeded).replace("%%1%%",exportedPreferencesFileName), Toast.LENGTH_LONG).show();
 
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
@@ -188,13 +193,13 @@ public class ImportExportPreferences {
             }
             if (!res) {
                 if (srcExists) {
-                    Toast.makeText(context, "Preferences import from 'engine_driver/" + exportedPreferencesFileName + "' failed!", Toast.LENGTH_LONG).show();
+                    Toast.makeText(context, context.getResources().getString(R.string.toastImportExportImportFailed).replace("%%1%%",exportedPreferencesFileName), Toast.LENGTH_LONG).show();
                 } else {
-                    Toast.makeText(context, "Preferences not imported from 'engine_driver/" + exportedPreferencesFileName + "'. You may not have saved the preferences for this host yet.", Toast.LENGTH_LONG).show();
+                    Toast.makeText(context, context.getResources().getString(R.string.toastImportExportServerImportFailed).replace("%%1%%",exportedPreferencesFileName), Toast.LENGTH_LONG).show();
                 }
             }
         } else {
-            Toast.makeText(context, "Can't import preferences. Not connected to a host.", Toast.LENGTH_LONG).show();
+            Toast.makeText(context, context.getResources().getString(R.string.toastImportExportCannotImport), Toast.LENGTH_LONG).show();
         }
 
         return res;

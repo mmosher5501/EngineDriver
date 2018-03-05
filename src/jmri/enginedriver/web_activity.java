@@ -128,6 +128,7 @@ public class web_activity extends Activity {
     @SuppressLint("SetJavaScriptEnabled")
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        Log.d("Engine_Driver","web_activity.onCreate()");
         super.onCreate(savedInstanceState);
 
         mainapp = (threaded_application) this.getApplication();
@@ -236,6 +237,7 @@ public class web_activity extends Activity {
 
     @Override
     public void onPause() {
+        Log.d("Engine_Driver", "web_activity.onPause() called");
         super.onPause();
         if (webView != null) {
             if (!callHiddenWebViewOnPause())

@@ -49,7 +49,10 @@ import android.telephony.TelephonyManager;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.ViewGroup;
+import android.view.animation.Animation;
 import android.webkit.CookieSyncManager;
+import android.widget.Button;
 import android.widget.Toast;
 
 import org.apache.http.client.HttpClient;
@@ -140,6 +143,7 @@ public class threaded_application extends Application {
     public final int minGamepadVersion = Build.VERSION_CODES.KITKAT;
     public final int minThemeVersion = android.os.Build.VERSION_CODES.HONEYCOMB;
     public final int minScreenDimNewMethodVersion = Build.VERSION_CODES.KITKAT;
+    public final int minActivatedButtonsVersion = Build.VERSION_CODES.ICE_CREAM_SANDWICH;
 
     static final int DEFAULT_HEARTBEAT_INTERVAL = 10;       //interval for heartbeat when WiT heartbeat is disabled
     static final int MIN_OUTBOUND_HEARTBEAT_INTERVAL = 2;   //minimum allowed interval for outbound heartbeat generator
@@ -2193,6 +2197,40 @@ public class threaded_application extends Application {
     }
 
     /**
+     * for menu passed in, hide or show the gamepad test menu
+     *
+     * @param menu - menu object that will be adjusted
+     */
+    public void setGamepadTestMenuOption(Menu menu,int gamepadCount) {
+        String whichGamePadMode = prefs.getString("prefGamePadType", getApplicationContext().getResources().getString(R.string.prefGamePadTypeDefaultValue));
+        boolean result = false;
+
+        if (menu != null) {
+            for (int i = 1; i <= 3; i++) {
+                MenuItem item = menu.findItem(R.id.gamepad_test_mnu1);
+                switch (i) {
+                    case 2:
+                        item = menu.findItem(R.id.gamepad_test_mnu2);
+                        break;
+                    case 3:
+                        item = menu.findItem(R.id.gamepad_test_mnu3);
+                }
+
+                if (i<=gamepadCount) {result = true;}
+                else {result =false;}
+
+                if (item != null) {
+                    if ((!whichGamePadMode.equals("None")) && (result)) {
+                        item.setVisible(true);
+                    } else {
+                        item.setVisible(false);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
      * for menu passed in, hide or show the routes menu
      *
      * @param menu - menu object that will be adjusted
@@ -2324,10 +2362,13 @@ public class threaded_application extends Application {
     }
 
     public void displayEStop(Menu menu) {
+        MenuItem mi = menu.findItem(R.id.EmerStop);
+        if (mi == null) return;
+
         if (prefs.getBoolean("show_emergency_stop_menu_preference", false)) {
-            menu.findItem(R.id.EmerStop).setVisible(true);
+            mi.setVisible(true);
         } else {
-            menu.findItem(R.id.EmerStop).setVisible(false);
+            mi.setVisible(false);
         }
 
     }
@@ -2552,6 +2593,21 @@ public class threaded_application extends Application {
         b.setNegativeButton(R.string.no, null);
         AlertDialog alert = b.create();
         alert.show();
+
+        // find positiveButton and negativeButton
+        Button positiveButton = (Button) alert.findViewById(android.R.id.button1);
+        Button negativeButton = (Button) alert.findViewById(android.R.id.button2);
+        // then get their parent ViewGroup
+        ViewGroup buttonPanelContainer = (ViewGroup) positiveButton.getParent();
+        int positiveButtonIndex = buttonPanelContainer.indexOfChild(positiveButton);
+        int negativeButtonIndex = buttonPanelContainer.indexOfChild(negativeButton);
+        if (positiveButtonIndex < negativeButtonIndex) {  // force 'No' 'Yes' order
+            // prepare exchange their index in ViewGroup
+            buttonPanelContainer.removeView(positiveButton);
+            buttonPanelContainer.removeView(negativeButton);
+            buttonPanelContainer.addView(negativeButton, positiveButtonIndex);
+            buttonPanelContainer.addView(positiveButton, negativeButtonIndex);
+        }
     }
 }
 

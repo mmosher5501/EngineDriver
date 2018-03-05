@@ -18,7 +18,6 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 package jmri.enginedriver;
 
 import android.app.AlertDialog;
-import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -37,24 +36,15 @@ import android.view.KeyEvent;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
-import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 
 import eu.esu.mobilecontrol2.sdk.MobileControl2;
@@ -67,6 +57,8 @@ public class preferences extends PreferenceActivity implements OnSharedPreferenc
     private Menu PRMenu;
     private int result;                     // set to RESULT_FIRST_USER when something is edited
 
+    private String deviceId = "";
+
     private boolean currentlyImporting = false;
     private String exportedPreferencesFileName =  "exported_preferences.ed";
     private boolean overwiteFile = false;
@@ -75,12 +67,15 @@ public class preferences extends PreferenceActivity implements OnSharedPreferenc
     private ArrayList<Integer> address_size_list; // Look at address_type.java
     public ImportExportPreferences importExportPreferences = new ImportExportPreferences();
 
-    private static final String EXAMPLE_HOST = "jmri.mstevetodd.com";
+    private static final String DEMO_HOST = "jmri.mstevetodd.com";
     private String[] prefHostImportExportOptionsFound = {"None"};
     private static final String IMPORT_PREFIX = "Import- "; // these two have to be the same length
     private static final String EXPORT_PREFIX = "Export- ";
 
-    private static final String OPTION_NONE = "None";
+    private static final String IMPORT_EXPORT_OPTION_NONE = "None";
+    private static final String IMPORT_EXPORT_OPTION_EXPORT = "Export";
+    private static final String IMPORT_EXPORT_OPTION_IMPORT ="Import";
+    private static final String IMPORT_EXPORT_OPTION_RESET = "Reset";
 
     private static String GAMEPAD_BUTTON_NOT_AVAILABLE_LABEL = "Button not available";
     private static String GAMEPAD_BUTTON_NOT_USABLE_LABEL = "Button not usable";
@@ -136,6 +131,16 @@ public class preferences extends PreferenceActivity implements OnSharedPreferenc
             getPreferenceScreen().findPreference("prefEsuMc2").setSelectable(false);
             getPreferenceScreen().findPreference("prefEsuMc2").setEnabled(false);
         }
+
+        sharedPreferences.edit().putBoolean("prefGamepadTestNow", false).commit();  //reset the preference
+
+        if (mainapp.androidVersion < mainapp.minActivatedButtonsVersion) {
+            getPreferenceScreen().findPreference("prefSelectedLocoIndicator").setSelectable(false);
+            getPreferenceScreen().findPreference("prefSelectedLocoIndicator").setEnabled(false);
+        }
+
+        deviceId = Settings.System.getString(getContentResolver(), Settings.System.ANDROID_ID);
+        sharedPreferences.edit().putString("prefAndroidId", deviceId).commit();
     }
 
     @SuppressWarnings("deprecation")
@@ -230,7 +235,7 @@ public class preferences extends PreferenceActivity implements OnSharedPreferenc
                 limitIntPrefValue(sharedPreferences, key, 1, 99, "4");
                 break;
             case "prefScreenBrightnessDim":
-                limitIntPrefValue(sharedPreferences, key, 0, 100, "5");
+                limitIntPrefValue(sharedPreferences, key, 1, 100, "5");
                 break;
             case "WebViewLocation":
                 mainapp.alert_activities(message_type.WEBVIEW_LOC, "");
@@ -276,11 +281,11 @@ public class preferences extends PreferenceActivity implements OnSharedPreferenc
                 if (!importExportPreferences.currentlyImporting) {
                     exportedPreferencesFileName =  "exported_preferences.ed";
                     String currentValue = sharedPreferences.getString(key, "");
-                    if (currentValue.equals("Export")) {
+                    if (currentValue.equals(IMPORT_EXPORT_OPTION_EXPORT)) {
                         saveSharedPreferencesToFile(sharedPreferences,exportedPreferencesFileName);
-                    } else if (currentValue.equals("Import")) {
-                        loadSharedPreferencesFromFile(sharedPreferences,exportedPreferencesFileName);
-                    } else if (currentValue.equals("Reset")) {
+                    } else if (currentValue.equals(IMPORT_EXPORT_OPTION_IMPORT)) {
+                        loadSharedPreferencesFromFile(sharedPreferences,exportedPreferencesFileName, deviceId);
+                    } else if (currentValue.equals(IMPORT_EXPORT_OPTION_RESET)) {
                         resetPreferences(sharedPreferences);
                     }
                 }
@@ -288,23 +293,50 @@ public class preferences extends PreferenceActivity implements OnSharedPreferenc
             case "prefHostImportExport":
                 if (!importExportPreferences.currentlyImporting) {
                     String currentValue = sharedPreferences.getString(key, "");
-                    if (!currentValue.equals(OPTION_NONE)) {
+                    if (!currentValue.equals(IMPORT_EXPORT_OPTION_NONE)) {
                         String action = currentValue.substring(0,IMPORT_PREFIX.length());
                         exportedPreferencesFileName = currentValue.substring(IMPORT_PREFIX.length(),currentValue.length());
                         if (action.equals(EXPORT_PREFIX)) {
                             saveSharedPreferencesToFile(sharedPreferences,exportedPreferencesFileName);
                         } else if (action.equals(IMPORT_PREFIX)) {
-                            loadSharedPreferencesFromFile(sharedPreferences, exportedPreferencesFileName);
+                            loadSharedPreferencesFromFile(sharedPreferences, exportedPreferencesFileName, deviceId);
                         }
                     }
                 }
                 break;
+            case "prefGamepadTestNow":
+                start_gamepad_test_activity();
+                break;
+            case "prefAccelerometerShakeThreshold":
+                limitFloatPrefValue(sharedPreferences, key, 1.2F, 3.0F, "2.0"); // limit check new value
+                break;
+        }
+    }
+
+    void start_gamepad_test_activity() {
+        SharedPreferences prefs = getSharedPreferences("jmri.enginedriver_preferences", 0);
+
+        boolean result = prefs.getBoolean("prefGamepadTestNow", getResources().getBoolean(R.bool.prefGamepadTestNowDefaultValue));
+
+        if (result) {
+            prefs.edit().putBoolean("prefGamepadTestNow", false).commit();  //reset the preference
+            reload();
+
+            try {
+                Intent in = new Intent().setClass(this, gamepad_test.class);
+                //navigatingAway = true;
+                startActivity(in);
+                connection_activity.overridePendingTransition(this, R.anim.fade_in, R.anim.fade_out);
+            } catch (Exception ex) {
+                Log.d("Engine_Driver", ex.getMessage());
+            }
+
         }
     }
 
     @SuppressWarnings({ "unchecked" })
-    private boolean loadSharedPreferencesFromFile(SharedPreferences sharedPreferences, String exportedPreferencesFileName) {
-        boolean res = importExportPreferences.loadSharedPreferencesFromFile(mainapp.getApplicationContext(), sharedPreferences, exportedPreferencesFileName);
+    private boolean loadSharedPreferencesFromFile(SharedPreferences sharedPreferences, String exportedPreferencesFileName, String deviceId) {
+        boolean res = importExportPreferences.loadSharedPreferencesFromFile(mainapp.getApplicationContext(), sharedPreferences, exportedPreferencesFileName, deviceId);
 
         if (!res) {
             Toast.makeText(getApplicationContext(), "Import from 'engine_driver/" + exportedPreferencesFileName + "' failed! You may not have saved the preferences for this host yet.", Toast.LENGTH_LONG).show();
@@ -353,12 +385,12 @@ public class preferences extends PreferenceActivity implements OnSharedPreferenc
         prefEdit.clear();
         prefEdit.commit();
         reload();
-        Toast.makeText(getApplicationContext(), "Preferences Reset to defaults!", Toast.LENGTH_LONG).show();
+        Toast.makeText(getApplicationContext(), getApplicationContext().getResources().getString(R.string.toastPreferencesResetSucceeded), Toast.LENGTH_LONG).show();
     }
 
     private void fixAndReloadImportExportPreference(SharedPreferences sharedPreferences){
-        sharedPreferences.edit().putString("prefImportExport", OPTION_NONE).commit();  //reset the preference
-        sharedPreferences.edit().putString("prefHostImportExport", OPTION_NONE).commit();  //reset the preference
+        sharedPreferences.edit().putString("prefImportExport", IMPORT_EXPORT_OPTION_NONE).commit();  //reset the preference
+        sharedPreferences.edit().putString("prefHostImportExport", IMPORT_EXPORT_OPTION_NONE).commit();  //reset the preference
         reload();
     }
 
@@ -414,18 +446,44 @@ public class preferences extends PreferenceActivity implements OnSharedPreferenc
                 sharedPreferences.edit().putString(key, Integer.toString(maxVal)).commit();
                 prefText.setText(Integer.toString(maxVal));
                 isValid = false;
-                Toast.makeText(getApplicationContext(), "Value entered is outside the limits ("+Integer.toString(minVal)+"-"+Integer.toString(maxVal)+"). Reset to "+Integer.toString(maxVal)+".", Toast.LENGTH_LONG).show();
+                Toast.makeText(getApplicationContext(), getApplicationContext().getResources().getString(R.string.toastPreferencesOutsideLimits).replace("%%1%%",Integer.toString(minVal)).replace("%%2%%",Integer.toString(minVal)).replace("%%3%%",Float.toString(maxVal)), Toast.LENGTH_LONG).show();
             } else if (newVal < minVal) {
                 sharedPreferences.edit().putString(key, Integer.toString(minVal)).commit();
                 prefText.setText(Integer.toString(minVal));
                 isValid = false;
-                Toast.makeText(getApplicationContext(), "Value entered is outside the limits ("+Integer.toString(minVal)+"-"+Integer.toString(maxVal)+"). Reset to "+Integer.toString(minVal)+".", Toast.LENGTH_LONG).show();
+                Toast.makeText(getApplicationContext(), getApplicationContext().getResources().getString(R.string.toastPreferencesOutsideLimits).replace("%%1%%",Integer.toString(minVal)).replace("%%2%%",Integer.toString(minVal)).replace("%%3%%",Float.toString(minVal)), Toast.LENGTH_LONG).show();
             }
         } catch (NumberFormatException e) {
             sharedPreferences.edit().putString(key, defaultVal).commit();
             prefText.setText(defaultVal);
             isValid = false;
-            Toast.makeText(getApplicationContext(), "Value entered not numeric ("+Integer.toString(minVal)+"-"+Integer.toString(maxVal)+")! Reset to default.", Toast.LENGTH_LONG).show();
+            Toast.makeText(getApplicationContext(), getApplicationContext().getResources().getString(R.string.toastPreferencesNotNumeric).replace("%%1%%",Integer.toString(minVal)).replace("%%2%%",Integer.toString(maxVal)).replace("%%3%%",defaultVal), Toast.LENGTH_LONG).show();
+        }
+        return isValid;
+    }
+
+    @SuppressWarnings("deprecation")
+    private boolean limitFloatPrefValue(SharedPreferences sharedPreferences, String key, Float minVal, Float maxVal, String defaultVal) {
+        boolean isValid = true;
+        EditTextPreference prefText = (EditTextPreference) getPreferenceScreen().findPreference(key);
+        try {
+            Float newVal = Float.parseFloat(sharedPreferences.getString(key, defaultVal).trim());
+            if (newVal > maxVal) {
+                sharedPreferences.edit().putString(key, Float.toString(maxVal)).commit();
+                prefText.setText(Float.toString(maxVal));
+                isValid = false;
+                Toast.makeText(getApplicationContext(), getApplicationContext().getResources().getString(R.string.toastPreferencesOutsideLimits).replace("%%1%%",Float.toString(minVal)).replace("%%2%%",Float.toString(maxVal)).replace("%%3%%",Float.toString(maxVal)), Toast.LENGTH_LONG).show();
+            } else if (newVal < minVal) {
+                sharedPreferences.edit().putString(key, Float.toString(minVal)).commit();
+                prefText.setText(Float.toString(minVal));
+                isValid = false;
+                Toast.makeText(getApplicationContext(), getApplicationContext().getResources().getString(R.string.toastPreferencesOutsideLimits).replace("%%1%%",Float.toString(minVal)).replace("%%2%%",Float.toString(maxVal)).replace("%%3%%",Float.toString(minVal)), Toast.LENGTH_LONG).show();
+            }
+        } catch (NumberFormatException e) {
+            sharedPreferences.edit().putString(key, defaultVal).commit();
+            prefText.setText(defaultVal);
+            isValid = false;
+            Toast.makeText(getApplicationContext(), getApplicationContext().getResources().getString(R.string.toastPreferencesNotNumeric).replace("%%1%%",Float.toString(minVal)).replace("%%2%%",Float.toString(maxVal)).replace("%%3%%",defaultVal), Toast.LENGTH_LONG).show();
         }
         return isValid;
     }
@@ -457,7 +515,7 @@ public class preferences extends PreferenceActivity implements OnSharedPreferenc
     }
 
     private void getConnectionsList() {
-        boolean foundExampleHost = false;
+        boolean foundDemoHost = false;
         String host_name;
         String host_name_filename;
         String errMsg;
@@ -474,8 +532,8 @@ public class preferences extends PreferenceActivity implements OnSharedPreferenc
                     if (parts.size() > 1) {  //skip if not split
                         host_name = parts.get(0);
                         host_name_filename = host_name.replaceAll("[^A-Za-z0-9_]", "_") + ".ed";
-                        if (host_name.equals(EXAMPLE_HOST)) {
-                            foundExampleHost = true;
+                        if (host_name.equals(DEMO_HOST)) {
+                            foundDemoHost = true;
                         }
                         if ((!host_name.equals("")) && (!isAlreadyInArray(prefHostImportExportOptionsFound, IMPORT_PREFIX + host_name_filename))) {
                             prefHostImportExportOptionsFound = add(prefHostImportExportOptionsFound, IMPORT_PREFIX + host_name_filename);
@@ -491,9 +549,9 @@ public class preferences extends PreferenceActivity implements OnSharedPreferenc
             Toast.makeText(getApplicationContext(), "Error reading recent connections list: " + errMsg, Toast.LENGTH_SHORT).show();
         }
 
-        if (!foundExampleHost) {
-            prefHostImportExportOptionsFound = add(prefHostImportExportOptionsFound, IMPORT_PREFIX + EXAMPLE_HOST.replaceAll("[^A-Za-z0-9_]", "_") + ".ed");
-            prefHostImportExportOptionsFound = add(prefHostImportExportOptionsFound, EXPORT_PREFIX+ EXAMPLE_HOST.replaceAll("[^A-Za-z0-9_]", "_") + ".ed");
+        if (!foundDemoHost) {
+            prefHostImportExportOptionsFound = add(prefHostImportExportOptionsFound, IMPORT_PREFIX + DEMO_HOST.replaceAll("[^A-Za-z0-9_]", "_") + ".ed");
+            prefHostImportExportOptionsFound = add(prefHostImportExportOptionsFound, EXPORT_PREFIX+ DEMO_HOST.replaceAll("[^A-Za-z0-9_]", "_") + ".ed");
         }
 
     }
@@ -576,6 +634,18 @@ public class preferences extends PreferenceActivity implements OnSharedPreferenc
         thisPref.setEnabled(thisEnabled);
 
         thisPref = getPreferenceScreen().findPreference("prefGamePadSpeedArrowsThrottleRepeatDelay");
+        thisPref.setSelectable(thisEnabled);
+        thisPref.setEnabled(thisEnabled);
+
+        thisPref = getPreferenceScreen().findPreference("prefGamepadSwapForwardReverseWithScreenButtons");
+        thisPref.setSelectable(thisEnabled);
+        thisPref.setEnabled(thisEnabled);
+
+        thisPref = getPreferenceScreen().findPreference("prefGamepadTestEnforceTesting");
+        thisPref.setSelectable(thisEnabled);
+        thisPref.setEnabled(thisEnabled);
+
+        thisPref = getPreferenceScreen().findPreference("prefGamepadTestNow");
         thisPref.setSelectable(thisEnabled);
         thisPref.setEnabled(thisEnabled);
     }

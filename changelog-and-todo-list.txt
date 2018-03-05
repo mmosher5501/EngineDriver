@@ -1,3 +1,12 @@
+**Version 2.18
+ * prevent some crashes reported to Google Play
+ * option to hide the demo server
+ * option for the volume keys to follow the last touched throttle
+ * fix issue with ESU Mobile Control II knob position not updating on EStop
+ * Import includes throttle name if on the same device that exported them
+ * multiple options for shaking the phone to perform an action
+ * separate preferences for Volume key and Gamepad speed increments
+ * fix issue with ESU Mobile Control II knob position updating speed even when screen locked
 **Version 2.17
  * Add support for ESU Mobile Control II throttle
  * Add toast messages when ESU Mobile Control II in stop mode
@@ -5,6 +14,10 @@
  * Enable/disable speed buttons & seekbar when ESU Mobile Control II in stop mode
  * Optional high contrast colour themes
  * Improved the rounding error on scale speed calculations (The throttle will zero more reliably)
+ * Option for additional highlight of the Loco selected. Either via the Volume keys or Gamepad 1 or both
+ * Option to disable the hardware volume keys to control the throttle
+ * Enforce a test each time you use a gamepad, with an option to disable the test
+ * Some regionalisation for Australia and Great Britain
  * prevent some crashes reported to Play Store
 **Version 2.16
  * Preference grouping
@@ -337,8 +350,8 @@
  *   added html About page
  */
 /*
+ *   TODO: handle MRC, Digitrax and new WiThrottle fastclock messages
  *   TODO: convert all WiThrottle commands to 2.0+ protocol, drop older protocol
- *   TODO: handle MRC and Digitrax fastclock messages
  *   TODO: change config files to use db instead of .txt files, turn off sd card permission
  *   TODO: toast messages on release of loco (even on Exit) and update of preferences
  *   TODO: split RESPONSE message into multiples, and remove string parsing from other activities
@@ -346,6 +359,8 @@
  * MRC
  *   TODO: hide or add option for MRC to turnout system list
  * web
+ *   TODO: diagnose why Web menu option doesn't work when Auto-Web enabled
+ *   TODO: can we preserve current state of web? currently it "refreshes" on every load
  *   TODO: allow user to specify initial zoom-level of each web view
  * routes
  *   TODO: use PRT titles for Active/inactive
@@ -370,9 +385,6 @@
  *   TODO: move socket timeout values to preference
  *   TODO: redo hard-coded 29 in function arrays (29 is hard-coded in WiT side, so no rush)
  * throttle:
- *   TODO: gamepad, handle incorrect mode better
- *   TODO: handle button decrement showing 0 in display, but not actually speed 0 (rounding?)
- *   TODO: new preference to set text of Forward and Reverse (e.g. East/West)
  *   TODO: eStop actually sends Stop, not eStop
  *   TODO: if nS is lead of ED consist, MT-nS loses track of "other" loco (test with a "partial steal")
  *   TODO: clear loco buttons on reconnect attempt until actual MT+ received
@@ -388,13 +400,13 @@
  *   TODO: add graphics (slider, stop, directions, functions?)  add colors
  *   TODO: get 2nd line of label text working again
  *   TODO: unset all states when loco not selected
- *   TODO: 
  * select_loco:
  *   TODO: disconnect connections made by roster stuff
  *   TODO: add close button and roster image to details dialog
  *   TODO: clean up code for new MT (Multi-throttle) feature 
  *   TODO: simplify select_loco by removing handler
  *   TODO: manually create roster entries and store on device
+ *   TODO: for "auto" handle the Digitrax numbering, i.e. 1-128 is short
  * preferences:
  *   TODO: show error if invalid entry
  *
